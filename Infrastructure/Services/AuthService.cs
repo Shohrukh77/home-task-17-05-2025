@@ -3,18 +3,18 @@ using System.Net;
 using System.Security.Claims;
 using System.Text;
 using Domain.Constants;
-using Domain.DTOs;
+using Domain.DTOs.Auth;
 using Domain.DTOs.Email;
-using Domain.Responses;
+using Domain.Responces;
 using Infrastructure.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Infrastructure.Services;
 
-public class AuthService(
-    UserManager<IdentityUser> userManager, 
+public class AuthService(UserManager<IdentityUser> userManager,RoleManager<IdentityRole> roleManager,     
     IConfiguration config,
     IEmailService emailService) : IAuthService
 {
@@ -51,7 +51,7 @@ public class AuthService(
             return new Response<string>(HttpStatusCode.InternalServerError, "Failed to create user");
         }
         
-        await userManager.AddToRoleAsync(user, Roles.Student);
+        await userManager.AddToRoleAsync(user, Roles.User);
         return new Response<string>("User created");
 
     }
@@ -101,8 +101,6 @@ public class AuthService(
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Key"]!));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        //var roles = await userManager.GetRolesAsync(user);
-
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id),
@@ -111,8 +109,6 @@ public class AuthService(
         
         var roles = await userManager.GetRolesAsync(user);
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
-
-        //claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var token = new JwtSecurityToken(
             issuer: config["Jwt:Issuer"],
